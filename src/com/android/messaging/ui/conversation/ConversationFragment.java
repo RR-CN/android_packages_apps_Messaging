@@ -51,6 +51,8 @@ import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerView.ViewHolder;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.view.ActionMode;
 import android.view.Display;
@@ -63,6 +65,7 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import android.widget.Toast;
 import com.android.messaging.BugleApplication;
 import com.android.messaging.R;
 import com.android.messaging.datamodel.DataModel;
@@ -81,6 +84,7 @@ import com.android.messaging.datamodel.data.MessageData;
 import com.android.messaging.datamodel.data.MessagePartData;
 import com.android.messaging.datamodel.data.ParticipantData;
 import com.android.messaging.datamodel.data.SubscriptionListData.SubscriptionListEntry;
+import com.android.messaging.sms.SimMessagesUtils;
 import com.android.messaging.ui.AttachmentPreview;
 import com.android.messaging.ui.BugleActionBarActivity;
 import com.android.messaging.ui.ConversationDrawables;
@@ -371,6 +375,16 @@ public class ConversationFragment extends Fragment implements ConversationDataLi
                     // use message-based cursor in conversation.
                     final MessageData message = mBinding.getData().createForwardedMessage(data);
                     UIIntents.get().launchForwardMessageActivity(getActivity(), message);
+                    mHost.dismissActionMode();
+                    return true;
+                case R.id.copy_to_sim:
+                    if (data != null && mBinding.getData().getParticipants() != null ) {
+                        if(SimMessagesUtils.getActivatedIccCardCount() > 1) {
+                            showSimSelectDialog(data);
+                        } else {
+                            copyToSim(data, SubscriptionManager.getDefaultSmsSubId());
+                        }
+                    }
                     mHost.dismissActionMode();
                     return true;
             }
@@ -995,7 +1009,7 @@ public class ConversationFragment extends Fragment implements ConversationDataLi
 
         LocalBroadcastManager.getInstance(getActivity())
                 .unregisterReceiver(mConversationSelfIdChangeReceiver);
-        BugleApplication.getLookupProviderClient().removeLookupProviderListener(mBinding.getData
+        BugleApplication.getLookupProvider().removeLookupProviderListener(mBinding.getData
                 ().getParticipantPhoneNumber(), this);
     }
 
@@ -1434,6 +1448,51 @@ public class ConversationFragment extends Fragment implements ConversationDataLi
         ((BugleActionBarActivity) activity).supportInvalidateOptionsMenu();
     }
 
+    private void copyToSim(ConversationMessageData data, int subId) {
+        boolean success = SimMessagesUtils
+                .copyToSim(data, mBinding.getData().getParticipants(), subId);
+        CharSequence copyToSimStatus = success ?
+                getResources().getText(R.string.copy_to_phone_success) :
+                getResources().getText(R.string.copy_to_sim_fail);
+        Toast.makeText(getActivity(), copyToSimStatus.toString(),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private void showSimSelectDialog(ConversationMessageData data) {
+        String[] items = new String[TelephonyManager.getDefault()
+                .getPhoneCount()];
+        for (int i = 0; i < items.length; i++) {
+            items[i] = SimMessagesUtils.getMultiSimName(
+                    getActivity(), i);
+        }
+        CopyToSimSelectListener listener = new CopyToSimSelectListener(
+                data);
+        new AlertDialog.Builder(getActivity())
+                .setTitle(R.string.copy_to_sim)
+                .setPositiveButton(android.R.string.ok, listener)
+                .setSingleChoiceItems(items, 0, listener)
+                .setCancelable(true).show();
+    }
+
+    private class CopyToSimSelectListener implements DialogInterface.OnClickListener {
+        private ConversationMessageData messageData;
+        private int slot;
+
+        public CopyToSimSelectListener(ConversationMessageData messageData) {
+            super();
+            this.messageData = messageData;
+        }
+
+        public void onClick(DialogInterface dialog, int which) {
+            if (which >= 0) {
+                slot = which;
+            } else if (which == DialogInterface.BUTTON_POSITIVE) {
+                int[] subId = SubscriptionManager.getSubId(slot);
+                copyToSim(messageData, subId[0]);
+            }
+        }
+    }
+
     @Override
     public void setOptionsMenuVisibility(final boolean visible) {
         setHasOptionsMenu(visible);
@@ -1441,6 +1500,9 @@ public class ConversationFragment extends Fragment implements ConversationDataLi
 
     @Override
     public int getConversationSelfSubId() {
+        if (PhoneUtils.getOverrideSendingSubId() != ParticipantData.DEFAULT_SELF_SUB_ID) {
+            return PhoneUtils.getOverrideSendingSubId();
+        }
         final String selfParticipantId = mComposeMessageView.getConversationSelfId();
         final ParticipantData self = mBinding.getData().getSelfParticipantById(selfParticipantId);
         // If the self id or the self participant data hasn't been loaded yet, fallback to
@@ -1604,9 +1666,9 @@ public class ConversationFragment extends Fragment implements ConversationDataLi
                 if (otherParticipant != null && ContactUtil.isValidContactId(
                         otherParticipant.getContactId())) {
                     if (!TextUtils.isEmpty(mBinding.getData().getParticipantPhoneNumber())) {
-                        BugleApplication.getLookupProviderClient().addLookupProviderListener(
+                        BugleApplication.getLookupProvider().addLookupProviderListener(
                                 mBinding.getData().getParticipantPhoneNumber(), this);
-                        BugleApplication.getLookupProviderClient().lookupInfoForPhoneNumber(
+                        BugleApplication.getLookupProvider().lookupInfoForPhoneNumber(
                                 mBinding.getData().getParticipantPhoneNumber());
                     }
                 }

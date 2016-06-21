@@ -26,6 +26,7 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBar;
 import android.telecom.TelecomManager;
+import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.TelephonyManager;
 import android.telephony.SmsManager;
@@ -78,6 +79,7 @@ import com.android.messaging.util.ContentType;
 import com.android.messaging.util.LogUtil;
 import com.android.messaging.util.MediaUtil;
 import com.android.messaging.util.OsUtil;
+import com.android.messaging.util.PhoneUtils;
 import com.android.messaging.util.UiUtils;
 import com.android.messaging.util.UnicodeFilter;
 
@@ -223,6 +225,17 @@ public class ComposeMessageView extends LinearLayout
                 (TelecomManager) activity.getSystemService(Context.TELECOM_SERVICE);
         final List<PhoneAccountHandle> handles = telecomMgr.getCallCapablePhoneAccounts();
 
+        //trim out SIP accounts
+        for (PhoneAccountHandle handle : handles) {
+            PhoneAccount phoneAccount = PhoneUtils.getAccountOrNull(activity, handle);
+            if (phoneAccount != null) {
+                Uri address = phoneAccount.getAddress();
+                if (address != null && address.getScheme() == PhoneAccount.SCHEME_SIP) {
+                    handles.remove(handle);
+                }
+            }
+        }
+
         final SelectPhoneAccountDialogFragment.SelectPhoneAccountListener listener =
                 new SelectPhoneAccountDialogFragment.SelectPhoneAccountListener() {
                     @Override
@@ -243,8 +256,8 @@ public class ComposeMessageView extends LinearLayout
     }
 
     private boolean isSMSPromptEnabled() {
-        return (TelephonyManager.getDefault().getPhoneCount() > 1)  &&
-                SmsManager.getDefault().isSMSPromptEnabled();
+        return PhoneUtils.getDefault().getActiveSubscriptionCount() > 1 &&
+                !PhoneUtils.getDefault().getHasPreferredSmsSim();
     }
 
     @Override
@@ -338,19 +351,7 @@ public class ComposeMessageView extends LinearLayout
         mSendButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(final View clickView) {
-
-                mConversationDataModel.getData().setOverrideSendingSubId(
-                                         ParticipantData.DEFAULT_SELF_SUB_ID);
-                if (isSMSPromptEnabled()) {
-                    showSimSelector((Activity)mOriginalContext, new OnSimSelectedCallback() {
-                        @Override
-                        public void onSimSelected(int subId) {
-                            sendMessageWithSubId(subId);
-                        }
-                    });
-                } else {
-                    sendMessageInternal(true /* checkMessageSize */);
-                }
+               promptAndSendWithSubId(true);
             }
         });
         mSendButton.setOnLongClickListener(new OnLongClickListener() {
@@ -449,7 +450,7 @@ public class ComposeMessageView extends LinearLayout
     @Override // TextView.OnEditorActionListener.onEditorAction
     public boolean onEditorAction(final TextView view, final int actionId, final KeyEvent event) {
         if (actionId == EditorInfo.IME_ACTION_SEND) {
-            sendMessageInternal(true /* checkMessageSize */);
+            promptAndSendWithSubId(true /* checkMessageSize */);
             return true;
         }
         return false;
@@ -538,7 +539,7 @@ public class ComposeMessageView extends LinearLayout
                     new Runnable() {
                         @Override
                         public void run() {
-                            sendMessageInternal(checkMessageSize);
+                            promptAndSendWithSubId(checkMessageSize);
                         }
 
             });
@@ -712,9 +713,19 @@ public class ComposeMessageView extends LinearLayout
                 mBinding.getData().getSelfId(), false /* excludeDefault */);
     }
 
-    private void sendMessageWithSubId(int subId) {
-         mConversationDataModel.getData().setOverrideSendingSubId(subId);
-         sendMessageInternal(true /* checkMessageSize */);
+    private void promptAndSendWithSubId(final boolean checkMessageSize) {
+        PhoneUtils.setOverrideSendingSubId(ParticipantData.DEFAULT_SELF_SUB_ID);
+        if (isSMSPromptEnabled()) {
+            showSimSelector((Activity)mOriginalContext, new OnSimSelectedCallback() {
+                @Override
+                public void onSimSelected(int subId) {
+                    PhoneUtils.setOverrideSendingSubId(subId);
+                    sendMessageInternal(checkMessageSize);
+                }
+            });
+        } else {
+            sendMessageInternal(checkMessageSize /* checkMessageSize */);
+        }
     }
 
     private boolean isDataLoadedForMessageSend() {
@@ -1026,7 +1037,7 @@ public class ComposeMessageView extends LinearLayout
     }
 
     public void sendMessageIgnoreMessageSizeLimit() {
-        sendMessageInternal(false /* checkMessageSize */);
+        promptAndSendWithSubId(false /* checkMessageSize */);
     }
 
     public void onAttachmentPreviewLongClicked() {

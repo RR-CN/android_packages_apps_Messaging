@@ -17,10 +17,6 @@ package com.cyanogenmod.messaging.lookup;
 
 import android.app.Activity;
 import android.app.Application;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.os.Bundle;
@@ -30,6 +26,7 @@ import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.cyanogen.lookup.phonenumber.contract.LookupProvider;
 import com.cyanogen.lookup.phonenumber.provider.LookupProviderImpl;
 import com.cyanogen.lookup.phonenumber.response.StatusCode;
 import com.cyanogen.lookup.phonenumber.util.LookupHandlerThread;
@@ -52,7 +49,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @see {@link LookupRequest.Callback}
  * @see {@link ILookupClient}
  */
-public class LookupProviderManager extends BroadcastReceiver implements Application
+public class LookupProviderManager implements Application
         .ActivityLifecycleCallbacks, LookupRequest.Callback, ILookupClient {
 
     private static final String TAG = "LookupProviderManager";
@@ -62,16 +59,15 @@ public class LookupProviderManager extends BroadcastReceiver implements Applicat
     private static final Handler sHandler = new Handler(Looper.getMainLooper());
     private static final LinkedHashMap<String, Bitmap> sAttributionLogoBitmapCache = new
             LinkedHashMap<>(1);
+
+    private final Object mConsumerLock = new Object();
+
     private Application mApplication;
     private ConcurrentHashMap<String, LookupResponse> mPhoneNumberLookupCache;
     private ConcurrentHashMap<String, HashSet<LookupProviderListener>> mLookupListeners;
     private LookupHandlerThread mLookupHandlerThread;
     private boolean mIsPhoneNumberLookupInitialized;
-    private short mActivityCount = 0;
-    private short mServiceCount = 0;
-
-    public static final String ACTION_CREATED = "service_created";
-    public static final String ACTION_DESTROYED = "service_destroyed";
+    private short mConsumerCount = 0;
 
     public LookupProviderManager() {
     }
@@ -89,10 +85,6 @@ public class LookupProviderManager extends BroadcastReceiver implements Applicat
         mPhoneNumberLookupCache = new ConcurrentHashMap<String, LookupResponse>();
         mLookupListeners = new ConcurrentHashMap<String, HashSet<LookupProviderListener>>();
         application.registerActivityLifecycleCallbacks(this);
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(ACTION_CREATED);
-        filter.addAction(ACTION_DESTROYED);
-        application.registerReceiver(this, filter);
         mApplication = application;
     }
 
@@ -109,11 +101,15 @@ public class LookupProviderManager extends BroadcastReceiver implements Applicat
     private boolean start() {
         log("start()");
         if (mLookupHandlerThread == null) {
-            mLookupHandlerThread = new LookupHandlerThread(THREAD_NAME, mApplication,
-                    new LookupProviderImpl(mApplication));
-            mLookupHandlerThread.initialize();
+            LookupProvider lookupProvider = LookupProviderImpl.INSTANCE.get(mApplication);
+            if (lookupProvider.isEnabled()) {
+                mLookupHandlerThread = new LookupHandlerThread(THREAD_NAME, mApplication,
+                        lookupProvider);
+                mLookupHandlerThread.initialize();
+
+            }
         }
-        return mLookupHandlerThread.isAlive();
+        return mLookupHandlerThread != null;
     }
 
     private void stop() {
@@ -214,34 +210,28 @@ public class LookupProviderManager extends BroadcastReceiver implements Applicat
         }
     }
 
-    /* ---------------------  Private level service count methods -------------------------------*/
+    /* ---------------------  Generic consumer count methods -------------------------------*/
 
-    private void onServiceCreated() {
-        ++mServiceCount;
-        if (mServiceCount == 1) {
-            if (!mIsPhoneNumberLookupInitialized) {
-                mIsPhoneNumberLookupInitialized = start();
+    public void onConsumerActivated() {
+        synchronized (mConsumerLock) {
+            ++mConsumerCount;
+            if (mConsumerCount == 1) {
+                if (!mIsPhoneNumberLookupInitialized) {
+                    mIsPhoneNumberLookupInitialized = start();
+                }
             }
         }
     }
 
-    private void onServiceDestroyed() {
-        --mServiceCount;
-        if (mServiceCount == 0 && mActivityCount == 0) {
-            if (mIsPhoneNumberLookupInitialized) {
-                stop();
-                mIsPhoneNumberLookupInitialized = false;
+    public void onConsumerDeactivated() {
+        synchronized (mConsumerLock) {
+            --mConsumerCount;
+            if (mConsumerCount == 0) {
+                if (mIsPhoneNumberLookupInitialized) {
+                    stop();
+                    mIsPhoneNumberLookupInitialized = false;
+                }
             }
-        }
-    }
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-        String action = intent.getAction();
-        if (ACTION_CREATED.equalsIgnoreCase(action)) {
-            onServiceCreated();
-        } else if (ACTION_DESTROYED.equalsIgnoreCase(action)) {
-            onServiceDestroyed();
         }
     }
 
@@ -249,15 +239,9 @@ public class LookupProviderManager extends BroadcastReceiver implements Applicat
     @Override
     public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
         log("onActivityCreated(" + activity + ", " + savedInstanceState + ")");
-        ++mActivityCount;
-        if (mActivityCount == 1) {
-            if (!mIsPhoneNumberLookupInitialized) {
-                mIsPhoneNumberLookupInitialized = start();
-            }
-        }
+        onConsumerActivated();
     }
 
-    /* ---------------------  Lookup Client interfaces  -----------------------------------------*/
     @Override
     public void onActivityStarted(Activity activity) {}
 
@@ -275,16 +259,11 @@ public class LookupProviderManager extends BroadcastReceiver implements Applicat
 
     @Override
     public void onActivityDestroyed(Activity activity) {
-        log("onActivityCreated(" + activity + ")");
-        --mActivityCount;
-        if (mActivityCount == 0 && mServiceCount == 0) {
-            if (mIsPhoneNumberLookupInitialized) {
-                stop();
-                mIsPhoneNumberLookupInitialized = false;
-            }
-        }
+        log("onActivityDestroyed(" + activity + ")");
+        onConsumerDeactivated();
     }
 
+    /* ---------------------  Lookup Client interfaces  -----------------------------------------*/
     @Override
     public LookupResponse blockingLookupInfoForPhoneNumber(String phoneNumber) {
         LookupResponse response = null;
@@ -309,6 +288,11 @@ public class LookupProviderManager extends BroadcastReceiver implements Applicat
             }
         }
         return response;
+    }
+
+    @Override
+    public LookupResponse lookupCachedInfoForPhoneNumber(String phoneNumber) {
+        return mPhoneNumberLookupCache.get(phoneNumber);
     }
 
     @Override
@@ -353,9 +337,8 @@ public class LookupProviderManager extends BroadcastReceiver implements Applicat
         }
 
         if (mIsPhoneNumberLookupInitialized) {
-            // always map request origin to INCOMING_SMS whilst the CallerInfoApi is in flux
             LookupRequest request = new LookupRequest(phoneNumber, this,
-                    LookupRequest.RequestOrigin.INCOMING_SMS);
+                    LookupRequest.RequestOrigin.SMS);
             // [TODO][MSB]: Could pass up the return of this
             mLookupHandlerThread.fetchInfoForPhoneNumber(request);
         }

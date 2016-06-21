@@ -44,6 +44,15 @@
   <string name="priority_normal">ปกติ</string>
   <string name="priority_high">สูง</string>
   <!-- Storage specific Settings -->
+  <string name="sms_storage_pref_title">พื้นที่จัดเก็บ</string>
+  <string name="pref_summary_auto_delete">ลบข้อความเก่าเนื่องจากถึงขีดจำกัด</string>
+  <string name="auto_delete_pref_title">ลบข้อความเก่า</string>
+  <string name="pref_summary_delete_limit"><xliff:g id="count">%1$s</xliff:g> ข้อความต่อการสนทนา</string>
+  <string name="sms_delete_pref_title">ขีดจำกัดข้อความสูงสุด</string>
+  <string name="mms_delete_pref_title">ขีดจำกัดข้อความมัลติมีเดีย</string>
+  <string name="set">ตั้งค่า</string>
+  <string name="no">ยกเลิก</string>
+  <string name="pref_messages_to_save">ตั้งค่าจำนวนข้อความเพื่อบันทึก</string>
   <!-- Swipe to delete conversation -->
   <string name="swipe_to_delete_conversation_pref_title">กวาดนิ้วเพื่อลบ</string>
   <string name="swipe_to_delete_conversation_pref_summary">กวาดนิ้วไปทางขวาเพื่อลบการสนทนา</string>
@@ -72,4 +81,23 @@
   <string name="show_emoticons_pref_title">การเข้าถึงอีโมติคอน</string>
   <string name="show_emoticons_pref_summary">แสดงแป้นอีโมติคอนบนแป้นพิมพ์</string>
   <string name="select_phone_account_title">ส่งด้วย</string>
+  <!-- Copy message to sim -->
+  <!-- Settings item for entering SIM card message screen -->
+  <!-- Message that appears on the "SMS messges on SIM card" screen when there are no messages on the SIM card -->
+  <!-- Context menu item on an individual message for emailing the sender -->
+  <!-- Context menu item on an individual message for dialing the sender's phone number -->
+  <!-- Menu shown in the context menu when long pressing on a message when the message contains
+         one or more phone numbers and/or email addresses and the number or email is new to
+         contacts. [CHAR LIMIT=50] -->
+  <!-- Confirm Delete -->
+  <!-- Delete confirmation dialog title -->
+  <!-- Title of screen displaying messages on SIM card -->
+  <!-- Message that appears on screen while SIM card messages are retrieved -->
+  <!-- Delete button title -->
+  <!-- Context menu item on an individual message for forwarding it to another recipient -->
+  <!-- Menu title to copy a selected message from the SIM card to the phone. -->
+  <!-- Menu title to copy a selected message from the SIM card to the phone. -->
+  <!-- Text to be used for affirmative response button in dialog boxes -->
+  <!-- Copy message to sim -->
+  <!-- Audio Library Tab for MMS attachments -->
 </resources>

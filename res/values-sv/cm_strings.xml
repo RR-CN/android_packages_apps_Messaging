@@ -25,17 +25,24 @@
   <!-- Settings item description for SMS and MMS Validity period -->
   <string name="validity_period_slot1_pref_title">Giltighetsperiod för SIM 1</string>
   <string name="validity_period_slot2_pref_title">Giltighetsperiod för SIM 2</string>
+  <string name="sms_validity_period_not_set">Inte inställt</string>
+  <string name="sms_validity_period_one_hour">1 timme</string>
   <string name="sms_validity_period_six_hours">6 timmar</string>
   <string name="sms_validity_period_twelve_hours">12 timmar</string>
   <string name="sms_validity_period_one_day">1 dag</string>
   <string name="mms_validity_period_two_days">2 dagar</string>
   <string name="mms_validity_period_one_week">1 vecka</string>
   <string name="validity_period_maximum">Maximalt</string>
+  <string name="delivery_reports_mms_pref_title">Leveransrapporter</string>
+  <string name="status_label">Status:\u0020</string>
   <!-- Item Descriptions for MMS sending Priority -->
   <string name="priority_low">Låg</string>
   <string name="priority_normal">Normal</string>
   <string name="priority_high">Hög</string>
   <!-- Storage specific Settings -->
+  <string name="sms_storage_pref_title">Lagring</string>
+  <string name="set">Ställ in</string>
+  <string name="no">Avbryt</string>
   <!-- Swipe to delete conversation -->
   <string name="swipe_to_delete_conversation_pref_title">Svep för att radera</string>
   <string name="swipe_to_delete_conversation_pref_summary">Svep till höger för att ta bort en konversation</string>
@@ -64,4 +71,40 @@
   <string name="show_emoticons_pref_title">Tillgång till uttryckssymboler</string>
   <string name="show_emoticons_pref_summary">Visa knappen för uttryckssymboler på tangentbordet</string>
   <string name="select_phone_account_title">Skicka med</string>
+  <!-- Copy message to sim -->
+  <!-- Settings item for entering SIM card message screen -->
+  <string name="pref_title_manage_sim_messages_slot1">Hantera SIM 1-meddelanden</string>
+  <string name="pref_title_manage_sim_messages_slot2">Hantera SIM 2-meddelanden</string>
+  <string name="copy_to_sim">Kopiera meddelande till SIM-kort</string>
+  <!-- Message that appears on the "SMS messges on SIM card" screen when there are no messages on the SIM card -->
+  <!-- Context menu item on an individual message for emailing the sender -->
+  <!-- Context menu item on an individual message for dialing the sender's phone number -->
+  <string name="menu_call_back">Ring <xliff:g id="name">%s </xliff:g></string>
+  <!-- Menu shown in the context menu when long pressing on a message when the message contains
+         one or more phone numbers and/or email addresses and the number or email is new to
+         contacts. [CHAR LIMIT=50] -->
+  <!-- Confirm Delete -->
+  <!-- Delete confirmation dialog title -->
+  <string name="confirm_dialog_title">Ta bort?</string>
+  <!-- Title of screen displaying messages on SIM card -->
+  <string name="sim_manage_messages_title">SMS på SIM-kortet</string>
+  <!-- Message that appears on screen while SIM card messages are retrieved -->
+  <string name="refreshing">Uppdaterar\u2026</string>
+  <!-- Delete button title -->
+  <string name="delete">Ta bort</string>
+  <!-- Context menu item on an individual message for forwarding it to another recipient -->
+  <string name="menu_forward">Framåt</string>
+  <string name="menu_reply">Svara</string>
+  <!-- Menu title to copy a selected message from the SIM card to the phone. -->
+  <!-- Menu title to copy a selected message from the SIM card to the phone. -->
+  <string name="sim_copy_to_phone_memory" product="default">Kopiera till telefonens minne</string>
+  <string name="selected_all">Markera alla</string>
+  <string name="deselected_all">Avmarkera alla</string>
+  <string name="selected_count"><xliff:g id="COUNT">%d</xliff:g> markerade</string>
+  <!-- Text to be used for affirmative response button in dialog boxes -->
+  <string name="yes">OK</string>
+  <!-- Copy message to sim -->
+  <string name="slot1">SIM 1</string>
+  <string name="slot2">SIM 2</string>
+  <!-- Audio Library Tab for MMS attachments -->
 </resources>

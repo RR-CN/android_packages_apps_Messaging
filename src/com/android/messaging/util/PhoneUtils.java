@@ -27,6 +27,11 @@ import android.net.ConnectivityManager;
 import android.provider.Settings;
 import android.provider.Telephony;
 import android.support.v4.util.ArrayMap;
+import android.support.v4.text.BidiFormatter;
+import android.support.v4.text.TextDirectionHeuristicsCompat;
+import android.telecom.TelecomManager;
+import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionInfo;
@@ -72,6 +77,16 @@ public abstract class PhoneUtils {
     // the country's cache. Each cache maps from original phone number to canonicalized phone
     private static final ArrayMap<String, ArrayMap<String, String>> sCanonicalPhoneNumberCache =
             new ArrayMap<>();
+
+    public static int sOverrideSendingSubId = ParticipantData.DEFAULT_SELF_SUB_ID;
+
+    public static int getOverrideSendingSubId() {
+        return sOverrideSendingSubId;
+    }
+
+    public static void setOverrideSendingSubId(int subId) {
+        sOverrideSendingSubId = subId;
+    }
 
     protected final Context mContext;
     protected final TelephonyManager mTelephonyManager;
@@ -553,6 +568,9 @@ public abstract class PhoneUtils {
             if (systemDefaultSubId < 0) {
                 // Always use -1 for any negative subId from system
                 return ParticipantData.DEFAULT_SELF_SUB_ID;
+            } else if (mSubscriptionManager.getSlotId(systemDefaultSubId) < 0) {
+                // Our default isn't inserted. Use the "select one" internal default.
+                return ParticipantData.DEFAULT_SELF_SUB_ID;
             }
             return systemDefaultSubId;
         }
@@ -876,7 +894,9 @@ public abstract class PhoneUtils {
             final PhoneNumberFormat phoneNumberFormat =
                     (systemCountryCode > 0 && parsedNumber.getCountryCode() == systemCountryCode) ?
                             PhoneNumberFormat.NATIONAL : PhoneNumberFormat.INTERNATIONAL;
-            return phoneNumberUtil.format(parsedNumber, phoneNumberFormat);
+            return BidiFormatter.getInstance().unicodeWrap(
+                    phoneNumberUtil.format(parsedNumber, phoneNumberFormat),
+                    TextDirectionHeuristicsCompat.LTR);
         } catch (NumberParseException e) {
             LogUtil.e(TAG, "PhoneUtils.formatForDisplay: invalid phone number "
                     + LogUtil.sanitizePII(phoneText) + " with country " + systemCountry);
@@ -1033,4 +1053,18 @@ public abstract class PhoneUtils {
         return isCDMAPhone(subscription) && isNetworkRoaming(subscription);
     }
 
+    /**
+     * Retrieve the account metadata, but if the account does not exist or the device has only a
+     * single registered and enabled account, return null.
+     */
+    public static PhoneAccount getAccountOrNull(Context context,
+            PhoneAccountHandle accountHandle) {
+        TelecomManager telecomManager =
+                (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
+        final PhoneAccount account = telecomManager.getPhoneAccount(accountHandle);
+        if (telecomManager.getCallCapablePhoneAccounts().size() <= 1) {
+            return null;
+        }
+        return account;
+    }
 }

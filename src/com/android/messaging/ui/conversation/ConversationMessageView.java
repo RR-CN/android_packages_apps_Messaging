@@ -232,6 +232,25 @@ public class ConversationMessageView extends FrameLayout implements View.OnClick
                 contentTop + contentHeight);
     }
 
+    public void bindToSimMessages(final Cursor cursor, final String selectedMessageId) {
+        mData.bindToSimMessages(cursor);
+        setSelected(TextUtils.equals(mData.getMessageId(), selectedMessageId));
+        // Update text and image content for the view.
+        updateViewContent();
+
+        // Update colors and layout parameters for the view.
+        updateViewAppearance();
+
+        updateContentDescription();
+
+        //Necessary to remove bubble width animation
+        mMessageBubble.bind();
+        //SIM Messages don't save timestamp for outgoing messages
+        if(!mData.getIsIncoming()) {
+            mStatusTextView.setVisibility(View.GONE);
+        }
+    }
+
     /**
      * Fills in the data associated with this view.
      *
@@ -488,9 +507,9 @@ public class ConversationMessageView extends FrameLayout implements View.OnClick
                     mData.getSenderContactLookupKey(), mData.getSenderNormalizedDestination());
             if (mData.getIsIncoming()
                     && !ContactUtil.isValidContactId(mData.getSenderContactId())) {
-                BugleApplication.getLookupProviderClient().addLookupProviderListener(
+                BugleApplication.getLookupProvider().addLookupProviderListener(
                         mData.getSenderNormalizedDestination(), this);
-                BugleApplication.getLookupProviderClient().lookupInfoForPhoneNumber(
+                BugleApplication.getLookupProvider().lookupInfoForPhoneNumber(
                         mData.getSenderNormalizedDestination());
             }
         }
@@ -1223,7 +1242,7 @@ public class ConversationMessageView extends FrameLayout implements View.OnClick
         super.onDetachedFromWindow();
         if (mData.getIsIncoming()
                 && !ContactUtil.isValidContactId(mData.getSenderContactId())) {
-            BugleApplication.getLookupProviderClient().removeLookupProviderListener(
+            BugleApplication.getLookupProvider().removeLookupProviderListener(
                     mData.getSenderNormalizedDestination(), this);
         }
     }

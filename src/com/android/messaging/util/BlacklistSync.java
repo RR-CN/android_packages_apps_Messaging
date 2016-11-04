@@ -16,6 +16,7 @@
 
 package com.android.messaging.util;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
@@ -27,9 +28,13 @@ import android.text.format.Time;
 import android.util.Log;
 import com.android.messaging.datamodel.BugleDatabaseOperations;
 import com.android.messaging.datamodel.DataModel;
+import com.android.messaging.datamodel.DatabaseHelper;
 import com.android.messaging.datamodel.DatabaseWrapper;
+import com.android.messaging.datamodel.MessagingContentProvider;
 import com.android.messaging.datamodel.data.ParticipantData;
 import com.android.messaging.util.LogUtil;
+
+import java.util.ArrayList;
 
 public class BlacklistSync extends AsyncTask<Void, Void, Void> {
     private Context mContext;
@@ -47,6 +52,11 @@ public class BlacklistSync extends AsyncTask<Void, Void, Void> {
         Uri CONTENT_URI = Uri.parse("content://blacklist");
         Cursor cursor;
 
+        DatabaseWrapper db = DataModel.get().getDatabase();
+        ArrayList<String> blockedParticipants = getBlockedParticipants(db);
+
+        BugleDatabaseOperations.resetBlockedParticpants(db);
+
         // need to update local blacklist database - we are simply overwriting the
         // local database with the framework database - the local database is used
         // as a WriteThrough Cache of the Framework Database
@@ -61,8 +71,6 @@ public class BlacklistSync extends AsyncTask<Void, Void, Void> {
                 cursor.close();
                 return null;
             }
-
-            DatabaseWrapper db = DataModel.get().getDatabase();
 
             while(cursor.moveToNext()) {
                 String number = cursor.getString(normalizedNumberIndex);
@@ -95,6 +103,42 @@ public class BlacklistSync extends AsyncTask<Void, Void, Void> {
             cursor.close();
         }
 
+        // unarchive conversations from participants that are no longer blocked
+        boolean conversationsUpdated = false;
+        ArrayList<String> updateBlockedParticipants = getBlockedParticipants(db);
+        for (String participant : blockedParticipants) {
+            if (!updateBlockedParticipants.contains(participant)) {
+                String selection =
+                        DatabaseHelper.ConversationColumns.OTHER_PARTICIPANT_NORMALIZED_DESTINATION
+                        + "=?";
+                String[] selectionArgs = {participant};
+                ContentValues values = new ContentValues();
+                values.put(DatabaseHelper.ConversationColumns.ARCHIVE_STATUS, 0);
+                db.update(DatabaseHelper.CONVERSATIONS_TABLE, values, selection, selectionArgs);
+                conversationsUpdated = true;
+            }
+        }
+
+        MessagingContentProvider.notifyAllParticipantsChanged();
+        if (conversationsUpdated) MessagingContentProvider.notifyConversationListChanged();
         return null;
+    }
+
+    private ArrayList getBlockedParticipants(DatabaseWrapper db) {
+        final String[] projection = {DatabaseHelper.ParticipantColumns.NORMALIZED_DESTINATION};
+        final String selection = DatabaseHelper.ParticipantColumns.BLOCKED + "=?";
+        final String[] selectionArgs = { "1" };
+        final ArrayList<String> blockedParticipants = new ArrayList<>();
+        try (Cursor cursor = db.query(DatabaseHelper.PARTICIPANTS_TABLE, projection, selection,
+                selectionArgs, null, null, null)) {
+            if (cursor != null && cursor.getCount() > 0) {
+                while (cursor.moveToNext()) {
+                    String normalizedDestination = cursor.getString(0);
+                    blockedParticipants.add(normalizedDestination);
+                }
+            }
+        }
+
+        return blockedParticipants;
     }
 }
